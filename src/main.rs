@@ -37,21 +37,21 @@ fn notify(msg: &str) {
 }
 
 /// Custom parsing function for comma-delimited values
-fn parse_comma_delimited(s: &Cli) -> String {
-    if let Some(args) = s.cmd_args.clone() {
+fn parse_comma_delimited(cli: &Cli) -> String {
+    if let Some(args) = cli.cmd_args.clone() {
         if !args.is_empty() {
             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
-            return format!("{} --class {} -e {}", &s.cmd, &s.class, &cmd_args);
+            return format!("{} --class {} -e {}", &cli.cmd, &cli.class, &cmd_args);
         }
     }
-    format!("{} --class {} ", &s.cmd, &s.class)
+    format!("{} --class {} ", &cli.cmd, &cli.class)
 }
 
 fn main() {
     info!("Starting Hyprdrop...");
-    let args = Cli::from_args();
+    let cli = Cli::from_args();
     SimpleLogger::new()
-        .with_level(if args.debug {
+        .with_level(if cli.debug {
             log::LevelFilter::Debug
         } else {
             log::LevelFilter::Info
@@ -62,15 +62,18 @@ fn main() {
         .init()
         .unwrap();
 
-    let regex_class = format!("^{}$", args.class);
+    let regex_class = format!("^{}$", cli.class);
 
     let clients = Clients::get().unwrap();
-    debug!("Clients: {:?}", clients);
+    // debug!("Clients: {:?}", clients);
     let active_workspace_id = Workspace::get_active().unwrap().id;
-    match clients.iter().find(|client| client.class == args.class) {
+    // FIX: There is some freezing when there is more than one special window running. The only way
+    // to fix this is closing and opening again the freezed window.
+    match clients.iter().find(|client| client.class == cli.class) {
         Some(client) => {
+            // Case 1: There is a client with the same class in a different workspace
             if client.workspace.id != active_workspace_id {
-                // Case 1: There is a client with the same class in a different workspace
+                // Move from special workspace or another workspace to the current one (show it)
 
                 // Avoiding moving to the special workspace if it's already there
                 if client.workspace.name != SPECIAL_WORKSPACE {
@@ -82,9 +85,12 @@ fn main() {
                         WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
                         Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
                     )) {
-                        error!("Failed to move app to workspace: {}", e);
-                        if args.debug {
-                            notify(&format!("Failed to move client to workspace: {}", e));
+                        error!("Failed to move app to special workspace: {}", e);
+                        if cli.debug {
+                            notify(&format!(
+                                "Failed to move client to special workspace: {}",
+                                e
+                            ));
                         }
                     }
                 }
@@ -96,7 +102,7 @@ fn main() {
                     Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
                 )) {
                     error!("Failed to move app to workspace: {}", e);
-                    if args.debug {
+                    if cli.debug {
                         notify(&format!("Failed to move client to workspace: {}", e));
                     }
                 }
@@ -105,34 +111,52 @@ fn main() {
                     WindowIdentifier::ClassRegularExpression(&regex_class),
                 )) {
                     error!("Failed to focus window: {}", e);
-                    if args.debug {
+                    if cli.debug {
                         notify(&format!("Failed to focus window: {}", e));
                     }
                 }
+
+                // Bring to the front the current window. This fix the issue in case there are two
+                // floating windows in the same workspace
+                // NOTE: BringActiveToTop will be deprecated in the future by AlterZOrder.
+                // NOTE: There is no way to determine if the focused window is already on the front.
+                if let Err(e) = Dispatch::call(DispatchType::BringActiveToTop) {
+                    error!("Failed to bring active window to the top: {}", e);
+                    if cli.debug {
+                        notify(&format!("Failed to bring active window to the top: {}", e));
+                    }
+                }
             } else {
-                // Case 2: There is a client with the same class in the current workspace
-                debug!("Moving app to {} workspace", SPECIAL_WORKSPACE);
+                // Case 2: There is a client with the same class in the current workspace.
+                // Move to the special workspace (hide it)
+                debug!("Moving {} to {} workspace", cli.cmd, SPECIAL_WORKSPACE);
                 if let Err(e) = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
                     WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
                     Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
                 )) {
-                    error!("Failed to move app to workspace: {}", e);
-                    if args.debug {
-                        notify(&format!("Failed to move client to workspace: {}", e));
+                    error!(
+                        "Failed to move {}:{} to workspace: {}",
+                        cli.cmd, cli.class, e
+                    );
+                    if cli.debug {
+                        notify(&format!(
+                            "Failed to move {}:{} to workspace: {}",
+                            cli.cmd, cli.class, e
+                        ));
                     }
                 }
             }
         }
         None => {
             // Case 3: No client with the specified class found, execute command
-            let final_cmd = parse_comma_delimited(&args);
+            let final_cmd = parse_comma_delimited(&cli);
             debug!(
                 "No previous matching app was found, executing command: {}",
                 &final_cmd
             );
             if let Err(e) = Dispatch::call(DispatchType::Exec(&final_cmd)) {
                 error!("Failed to execute command: {}", e);
-                if args.debug {
+                if cli.debug {
                     notify(&format!("Failed to execute command: {}", e));
                 }
             }
