@@ -35,7 +35,7 @@ bind = $mainMod, I, exec, hyprdrop alacritty --class=bottom_hyprdrop --args btm,
 
 >[!WARNING]
 >
-> Hyprdrop currently only supports terminal apps. I've not tested it other ones yet.
+> Hyprdrop currently supports only terminal applications. I have not tested it with other types yet.
 
 ### Window Rules
 For better experience you can add some window rules to your hyprland config. This create a centered floating window with defined size.
@@ -45,7 +45,7 @@ windowrulev2 = center, class:^(alacritty_hyprdrop)$
 windowrulev2 = size 1460 810, class:^(alacritty_hyprdrop)$
 ```
 
-Or rules for TUI apps:
+And some additional rules for TUI apps:
 ```
 windowrulev2 = float, class:^(bottom_hyprdrop)$
 windowrulev2 = center, class:^(bottom_hyprdrop)$
