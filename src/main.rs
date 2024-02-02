@@ -37,7 +37,7 @@ fn notify(msg: &str) {
 }
 
 /// Custom parsing function for comma-delimited values
-fn parse_comma_delimited(cli: &Cli) -> String {
+fn parse_arguments(cli: &Cli) -> String {
     if let Some(args) = cli.cmd_args.clone() {
         if !args.is_empty() {
             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
@@ -45,6 +45,14 @@ fn parse_comma_delimited(cli: &Cli) -> String {
         }
     }
     format!("{} --class {} ", &cli.cmd, &cli.class)
+}
+
+/// Handle errors.
+fn handle_error(e: &str, debug: &bool) {
+    error!("{}", e);
+    if *debug {
+        notify(e)
+    };
 }
 
 fn main() {
@@ -62,10 +70,10 @@ fn main() {
         .init()
         .unwrap();
 
-    let regex_class = format!("^{}$", cli.class);
+    let regex_class = format!("^{}$", &cli.class);
 
     let clients = Clients::get().unwrap();
-    // debug!("Clients: {:?}", clients);
+    debug!("Clients: {:?}", clients);
     let active_workspace_id = Workspace::get_active().unwrap().id;
     match clients.iter().find(|client| client.class == cli.class) {
         Some(client) => {
@@ -95,7 +103,7 @@ fn main() {
                             if cli.debug {
                                 notify(&format!(
                                     "Failed to move {}:{} to special workspace: {}",
-                                    cli.cmd, cli.class, e
+                                    &cli.cmd, &cli.class, e
                                 ));
                             }
                         }
@@ -113,13 +121,13 @@ fn main() {
                         cli.cmd, cli.class, active_workspace_id
                     ),
                     Err(e) => {
-                        error!(
-                            "Failed to move {}:{} to active workspace id: {}, error: {}",
-                            cli.cmd, cli.class, active_workspace_id, e
+                        handle_error(
+                            &format!(
+                                "Failed to move {}:{} to active workspace id: {}",
+                                cli.cmd, cli.class, e
+                            ),
+                            &cli.debug,
                         );
-                        if cli.debug {
-                            notify(&format!("Failed to move client to workspace: {}", e));
-                        }
                     }
                 }
 
@@ -131,10 +139,10 @@ fn main() {
                 match res {
                     Ok(_) => debug!("Active window brought to the top"),
                     Err(e) => {
-                        error!("Failed to bring active window to the top: {}", e);
-                        if cli.debug {
-                            notify(&format!("Failed to bring active window to the top: {}", e));
-                        }
+                        handle_error(
+                            &format!("Failed to bring active window to the top: {}", e),
+                            &cli.debug,
+                        );
                     }
                 }
             } else {
@@ -147,26 +155,23 @@ fn main() {
                 match res {
                     Ok(_) => debug!(
                         "Moved {}:{} to special workspace: {}",
-                        cli.cmd, cli.class, SPECIAL_WORKSPACE
+                        &cli.cmd, &cli.class, SPECIAL_WORKSPACE
                     ),
                     Err(e) => {
-                        error!(
-                            "Failed to move {}:{} to workspace: {}",
-                            cli.cmd, cli.class, e
+                        handle_error(
+                            &format!(
+                                "Failed to move {}:{} to special workspace: {}",
+                                &cli.cmd, &cli.class, e
+                            ),
+                            &cli.debug,
                         );
-                        if cli.debug {
-                            notify(&format!(
-                                "Failed to move {}:{} to workspace: {}",
-                                cli.cmd, cli.class, e
-                            ));
-                        }
                     }
                 }
             }
         }
         None => {
             // Case 3: No client with the specified class found, execute command
-            let final_cmd = parse_comma_delimited(&cli);
+            let final_cmd = parse_arguments(&cli);
             debug!(
                 "No previous matching app was found, executing command: {}",
                 &final_cmd
@@ -176,11 +181,9 @@ fn main() {
                 Ok(_) => {
                     debug!("Executed command: {}", &final_cmd);
                 }
+
                 Err(e) => {
-                    error!("Failed to execute command: {}", e);
-                    if cli.debug {
-                        notify(&format!("Failed to execute command: {}", e));
-                    }
+                    handle_error(&format!("Failed to execute command: {}", e), &cli.debug);
                 }
             }
         }
