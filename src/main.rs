@@ -67,8 +67,6 @@ fn main() {
     let clients = Clients::get().unwrap();
     // debug!("Clients: {:?}", clients);
     let active_workspace_id = Workspace::get_active().unwrap().id;
-    // FIX: There is some freezing when there is more than one special window running. The only way
-    // to fix this is closing and opening again the freezed window.
     match clients.iter().find(|client| client.class == cli.class) {
         Some(client) => {
             // Case 1: There is a client with the same class in a different workspace
@@ -80,39 +78,48 @@ fn main() {
                     // NOTE: It seems weird to first move the client to the special workspace and then
                     // moving it to the active workspace but this is the only way to prevent
                     // the freezing when retrieving from another non-special workspace.
-                    debug!("Moving app to {} workspace", SPECIAL_WORKSPACE);
-                    if let Err(e) = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
+                    let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
                         WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
                         Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-                    )) {
-                        error!("Failed to move app to special workspace: {}", e);
-                        if cli.debug {
-                            notify(&format!(
-                                "Failed to move client to special workspace: {}",
-                                e
-                            ));
+                    ));
+                    match res {
+                        Ok(_) => debug!(
+                            "Moved {}:{} to special workspace: {}",
+                            cli.cmd, cli.class, SPECIAL_WORKSPACE
+                        ),
+                        Err(e) => {
+                            error!(
+                                "Failed to move {}:{} to special workspace: {}",
+                                cli.cmd, cli.class, e
+                            );
+                            if cli.debug {
+                                notify(&format!(
+                                    "Failed to move {}:{} to special workspace: {}",
+                                    cli.cmd, cli.class, e
+                                ));
+                            }
                         }
-                    }
+                    };
                 }
 
                 // Moving to current active workspace
-                debug!("Moving app to workspace {}", active_workspace_id);
-                if let Err(e) = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
+                let res = Dispatch::call(DispatchType::MoveToWorkspace(
                     WorkspaceIdentifierWithSpecial::Id(active_workspace_id),
                     Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-                )) {
-                    error!("Failed to move app to workspace: {}", e);
-                    if cli.debug {
-                        notify(&format!("Failed to move client to workspace: {}", e));
-                    }
-                }
-                // Focusing the retrieved window
-                if let Err(e) = Dispatch::call(DispatchType::FocusWindow(
-                    WindowIdentifier::ClassRegularExpression(&regex_class),
-                )) {
-                    error!("Failed to focus window: {}", e);
-                    if cli.debug {
-                        notify(&format!("Failed to focus window: {}", e));
+                ));
+                match res {
+                    Ok(_) => debug!(
+                        "Moved {}:{} to active workspace id: {}",
+                        cli.cmd, cli.class, active_workspace_id
+                    ),
+                    Err(e) => {
+                        error!(
+                            "Failed to move {}:{} to active workspace id: {}, error: {}",
+                            cli.cmd, cli.class, active_workspace_id, e
+                        );
+                        if cli.debug {
+                            notify(&format!("Failed to move client to workspace: {}", e));
+                        }
                     }
                 }
 
@@ -120,29 +127,39 @@ fn main() {
                 // floating windows in the same workspace
                 // NOTE: BringActiveToTop will be deprecated in the future by AlterZOrder.
                 // NOTE: There is no way to determine if the focused window is already on the front.
-                if let Err(e) = Dispatch::call(DispatchType::BringActiveToTop) {
-                    error!("Failed to bring active window to the top: {}", e);
-                    if cli.debug {
-                        notify(&format!("Failed to bring active window to the top: {}", e));
+                let res = Dispatch::call(DispatchType::BringActiveToTop);
+                match res {
+                    Ok(_) => debug!("Active window brought to the top"),
+                    Err(e) => {
+                        error!("Failed to bring active window to the top: {}", e);
+                        if cli.debug {
+                            notify(&format!("Failed to bring active window to the top: {}", e));
+                        }
                     }
                 }
             } else {
                 // Case 2: There is a client with the same class in the current workspace.
                 // Move to the special workspace (hide it)
-                debug!("Moving {} to {} workspace", cli.cmd, SPECIAL_WORKSPACE);
-                if let Err(e) = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
+                let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
                     WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
                     Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-                )) {
-                    error!(
-                        "Failed to move {}:{} to workspace: {}",
-                        cli.cmd, cli.class, e
-                    );
-                    if cli.debug {
-                        notify(&format!(
+                ));
+                match res {
+                    Ok(_) => debug!(
+                        "Moved {}:{} to special workspace: {}",
+                        cli.cmd, cli.class, SPECIAL_WORKSPACE
+                    ),
+                    Err(e) => {
+                        error!(
                             "Failed to move {}:{} to workspace: {}",
                             cli.cmd, cli.class, e
-                        ));
+                        );
+                        if cli.debug {
+                            notify(&format!(
+                                "Failed to move {}:{} to workspace: {}",
+                                cli.cmd, cli.class, e
+                            ));
+                        }
                     }
                 }
             }
@@ -154,10 +171,16 @@ fn main() {
                 "No previous matching app was found, executing command: {}",
                 &final_cmd
             );
-            if let Err(e) = Dispatch::call(DispatchType::Exec(&final_cmd)) {
-                error!("Failed to execute command: {}", e);
-                if cli.debug {
-                    notify(&format!("Failed to execute command: {}", e));
+            let res = Dispatch::call(DispatchType::Exec(&final_cmd));
+            match res {
+                Ok(_) => {
+                    debug!("Executed command: {}", &final_cmd);
+                }
+                Err(e) => {
+                    error!("Failed to execute command: {}", e);
+                    if cli.debug {
+                        notify(&format!("Failed to execute command: {}", e));
+                    }
                 }
             }
         }
