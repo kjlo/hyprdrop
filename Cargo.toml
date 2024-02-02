@@ -1,0 +1,19 @@
+[package]
+name = "hyprdrop"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", rev = "993f6e5d87bb6f3a0e70405025c79c418de474b4" }
+log = "0.4.20"
+time = "0.3.32"
+simple_logger = "4.3.3"
+structopt = "0.3.26"
+
+[profile.release]
+opt-level = "z"
+strip = true
+lto = true
+codegen-units = 1
