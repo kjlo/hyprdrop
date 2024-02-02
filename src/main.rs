@@ -13,7 +13,7 @@ const SPECIAL_WORKSPACE: &str = "hyprdrop";
 #[derive(StructOpt)]
 #[structopt(
     name = "hyprdrop",
-    about = "Create an Hyprland window and move it to a dropdown and then hide and show it on different workspaces."
+    about = "Generate a Hyprland window, relocate it to a dropdown, and seamlessly toggle its visibility across various workspaces."
 )]
 struct Cli {
     #[structopt(name = "COMMAND", help = "Command to execute")]
