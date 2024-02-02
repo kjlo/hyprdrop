@@ -20,7 +20,7 @@ This will create a binary in your `$HOME/.cargo/bin`. You must check that this a
 
 
 ## Usage
-The better way to use it is to add as a binding to your hyprland config like this:
+The preferred way to use it is by adding it as a binding to your Hyprland config, like this:
 ```
 bind = $mainMod, U, exec, hyprdrop alacritty --class alacritty_hyprdrop
 ```
