@@ -44,10 +44,10 @@ fn parse_arguments(cli: &Cli) -> String {
     if let Some(args) = cli.cmd_args.clone() {
         if !args.is_empty() {
             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
-            return format!("{} --class {} -e {}", &cli.cmd, &cli.class, &cmd_args);
+            return format!("{} --class={} -e {}", &cli.cmd, &cli.class, &cmd_args);
         }
     }
-    format!("{} --class {} ", &cli.cmd, &cli.class)
+    format!("{} --class={} ", &cli.cmd, &cli.class)
 }
 
 /// Handle errors.
