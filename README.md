@@ -2,6 +2,8 @@
 
 Rust implementation of [Hdrop](https://github.com/Schweber/hdrop).
 
+https://github.com/kjlo/hyprdrop/assets/79338048/cdf9fff6-690c-46cb-a7a6-0b2db14ab753
+
 
 ## Requirements
 
