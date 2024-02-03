@@ -76,7 +76,6 @@ fn main() {
     let regex_class = format!("^{}$", &cli.class);
 
     let clients = Clients::get().unwrap();
-    debug!("Clients: {:?}", clients);
     let active_workspace_id = Workspace::get_active().unwrap().id;
     match clients.iter().find(|client| client.class == cli.class) {
         Some(client) => {
@@ -176,10 +175,9 @@ fn main() {
             // Case 3: There is no client with the same class.
             let parsed_args = parse_arguments(&cli);
             let final_cmd = format!(
-                "{} {}{}",
-                &cli.cmd,
+                "{} {}",
                 if cli.background {
-                    "[workspace special:hyprdrop silent] "
+                    "[workspace special:hyprdrop silent]"
                 } else {
                     ""
                 },
@@ -200,4 +198,5 @@ fn main() {
             }
         }
     };
+    info!("Hyprdrop finished");
 }
