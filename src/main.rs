@@ -178,7 +178,7 @@ fn main() {
         .init()
         .unwrap();
 
-    let regex_criteria = cli.to_regex();
+    let regex_match = cli.to_regex();
 
     let clients = Clients::get().unwrap();
     let active_workspace_id = Workspace::get_active().unwrap().id;
@@ -196,11 +196,11 @@ fn main() {
                     // NOTE: It seems weird to first move the client to the special workspace and then
                     // moving it to the active workspace but this is the only way to prevent
                     // the freezing when retrieving from another non-special workspace.
-                    cli.move_to_workspace_silent(&regex_criteria);
+                    cli.move_to_workspace_silent(&regex_match);
                 }
 
                 // Moving to current active workspace
-                cli.move_to_workspace(&regex_criteria, active_workspace_id);
+                cli.move_to_workspace(&regex_match, active_workspace_id);
 
                 // Bring to the front the current window. This fix the issue in case there are two
                 // floating windows in the same workspace
@@ -219,7 +219,7 @@ fn main() {
             } else {
                 // Case 2: There is a client with the same class in the current workspace.
                 // Move to the special workspace (hide it)
-                cli.move_to_workspace_silent(&regex_criteria);
+                cli.move_to_workspace_silent(&regex_match);
             }
         }
         None => {
