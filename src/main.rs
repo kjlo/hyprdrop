@@ -1,5 +1,5 @@
 use hyprland::{
-    data::{Clients, Workspace},
+    data::{Client, Clients, Workspace},
     dispatch::{Dispatch, DispatchType, WindowIdentifier, WorkspaceIdentifierWithSpecial},
     shared::{HyprData, HyprDataActive},
 };
@@ -41,21 +41,138 @@ fn notify(msg: &str) {
 
 /// Custom parsing function for comma-delimited values
 fn parse_arguments(cli: &Cli) -> String {
-    if let Some(args) = cli.cmd_args.clone() {
+    // if cli.cmd == "alacritty" || cli.cmd == "kitty" {
+    //     if let Some(args) = cli.cmd_args.clone() {
+    //         if !args.is_empty() {
+    //             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
+    //             return format!("{} --class={} -e {}", &cli.cmd, &cli.class, &cmd_args);
+    //         }
+    //     }
+    //     return format!("{} --class={} ", &cli.cmd, &cli.class);
+    // } else if cli.cmd == "foot" {
+    //     if let Some(args) = cli.cmd_args.clone() {
+    //         if !args.is_empty() {
+    //             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
+    //             return format!(
+    //                 "{} --title={} --override locked-title=yes -e {}",
+    //                 &cli.cmd, &cli.class, &cmd_args
+    //             );
+    //         }
+    //     }
+    //     return format!(
+    //         "{} --title={} --override locked-title=yes ",
+    //         &cli.cmd, &cli.class
+    //     );
+    // }
+    // "".to_string()
+    if let Some(args) = &cli.cmd_args {
         if !args.is_empty() {
             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
-            return format!("{} --class={} -e {}", &cli.cmd, &cli.class, &cmd_args);
+            return match cli.cmd.as_str() {
+                "alacritty" | "kitty" => {
+                    format!("{} --class={} -e {}", &cli.cmd, &cli.class, &cmd_args)
+                }
+                "foot" => format!(
+                    "{} --title={} --override locked-title=yes -e {}",
+                    &cli.cmd, &cli.class, &cmd_args
+                ),
+                _ => "".to_string(),
+            };
         }
     }
-    format!("{} --class={} ", &cli.cmd, &cli.class)
+    match cli.cmd.as_str() {
+        "alacritty" | "kitty" => format!("{} --class={}", &cli.cmd, &cli.class),
+        "foot" => format!(
+            "{} --title={} --override locked-title=yes",
+            &cli.cmd, &cli.class
+        ),
+        _ => "".to_string(),
+    }
 }
 
 /// Handle errors.
-fn handle_error(e: &str, debug: &bool) {
+fn handle_error(e: &str, debug: bool) {
     error!("{}", e);
-    if *debug {
+    if debug {
         notify(e)
     };
+}
+
+trait LocalCLient {
+    fn get_title_or_class(&self, cmd: &str) -> &str;
+}
+
+impl LocalCLient for Client {
+    fn get_title_or_class(&self, cmd: &str) -> &str {
+        match cmd {
+            "foot" => &self.title,
+            _ => &self.class,
+        }
+    }
+}
+
+impl Cli {
+    fn to_regex(&self) -> String {
+        format!("^{}$", self.class)
+    }
+    fn get_window_identifier<'a>(&self, regex_class: &'a str) -> Option<WindowIdentifier<'a>> {
+        match self.cmd.as_str() {
+            "foot" => Some(WindowIdentifier::Title(regex_class)),
+            "alacritty" | "kitty" => Some(WindowIdentifier::ClassRegularExpression(regex_class)),
+            _ => None,
+        }
+    }
+    // fn window_identifier<'a>(&self) -> Option<WindowIdentifier<'a>> {
+    //     let regex_class = self.to_regex();
+    //     match self.cmd.as_str() {
+    //         "foot" => Some(WindowIdentifier::Title(&regex_class)),
+    //         "alacritty" | "kitty" => Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
+    //         _ => None,
+    //     }
+    // }
+
+    fn move_to_workspace_silent(&self, regex_class: &str) {
+        let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
+            WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
+            self.get_window_identifier(regex_class),
+        ));
+        match res {
+            Ok(_) => debug!(
+                "Moved {}:{} to workspace: {}",
+                self.cmd, &self.class, SPECIAL_WORKSPACE
+            ),
+            Err(e) => {
+                handle_error(
+                    &format!(
+                        "Failed to move {}:{} to workspace: {}",
+                        self.cmd, self.class, e
+                    ),
+                    self.debug,
+                );
+            }
+        }
+    }
+    fn move_to_workspace(&self, regex_class: &str, workspace_id: i32) {
+        let res = Dispatch::call(DispatchType::MoveToWorkspace(
+            WorkspaceIdentifierWithSpecial::Id(workspace_id),
+            self.get_window_identifier(regex_class),
+        ));
+        match res {
+            Ok(_) => debug!(
+                "Moved {}:{} to active workspace id: {}",
+                self.cmd, self.class, workspace_id
+            ),
+            Err(e) => {
+                handle_error(
+                    &format!(
+                        "Failed to move {}:{} to active workspace id: {}",
+                        self.cmd, self.class, e
+                    ),
+                    self.debug,
+                );
+            }
+        }
+    }
 }
 
 fn main() {
@@ -73,11 +190,15 @@ fn main() {
         .init()
         .unwrap();
 
-    let regex_class = format!("^{}$", &cli.class);
+    // let regex_class = format!("^{}$", &cli.class);
+    let regex_class = cli.to_regex();
 
     let clients = Clients::get().unwrap();
     let active_workspace_id = Workspace::get_active().unwrap().id;
-    match clients.iter().find(|client| client.class == cli.class) {
+    match clients
+        .iter()
+        .find(|client| client.get_title_or_class(&cli.cmd) == cli.class)
+    {
         Some(client) => {
             // Case 1: There is a client with the same class in a different workspace
             if client.workspace.id != active_workspace_id {
@@ -88,50 +209,11 @@ fn main() {
                     // NOTE: It seems weird to first move the client to the special workspace and then
                     // moving it to the active workspace but this is the only way to prevent
                     // the freezing when retrieving from another non-special workspace.
-                    let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
-                        WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
-                        Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-                    ));
-                    match res {
-                        Ok(_) => debug!(
-                            "Moved {}:{} to special workspace: {}",
-                            cli.cmd, cli.class, SPECIAL_WORKSPACE
-                        ),
-                        Err(e) => {
-                            error!(
-                                "Failed to move {}:{} to special workspace: {}",
-                                cli.cmd, cli.class, e
-                            );
-                            if cli.debug {
-                                notify(&format!(
-                                    "Failed to move {}:{} to special workspace: {}",
-                                    &cli.cmd, &cli.class, e
-                                ));
-                            }
-                        }
-                    };
+                    cli.move_to_workspace_silent(&regex_class);
                 }
 
                 // Moving to current active workspace
-                let res = Dispatch::call(DispatchType::MoveToWorkspace(
-                    WorkspaceIdentifierWithSpecial::Id(active_workspace_id),
-                    Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-                ));
-                match res {
-                    Ok(_) => debug!(
-                        "Moved {}:{} to active workspace id: {}",
-                        cli.cmd, cli.class, active_workspace_id
-                    ),
-                    Err(e) => {
-                        handle_error(
-                            &format!(
-                                "Failed to move {}:{} to active workspace id: {}",
-                                cli.cmd, cli.class, e
-                            ),
-                            &cli.debug,
-                        );
-                    }
-                }
+                cli.move_to_workspace(&regex_class, active_workspace_id);
 
                 // Bring to the front the current window. This fix the issue in case there are two
                 // floating windows in the same workspace
@@ -143,32 +225,14 @@ fn main() {
                     Err(e) => {
                         handle_error(
                             &format!("Failed to bring active window to the top: {}", e),
-                            &cli.debug,
+                            cli.debug,
                         );
                     }
                 }
             } else {
                 // Case 2: There is a client with the same class in the current workspace.
                 // Move to the special workspace (hide it)
-                let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
-                    WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
-                    Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-                ));
-                match res {
-                    Ok(_) => debug!(
-                        "Moved {}:{} to special workspace: {}",
-                        &cli.cmd, &cli.class, SPECIAL_WORKSPACE
-                    ),
-                    Err(e) => {
-                        handle_error(
-                            &format!(
-                                "Failed to move {}:{} to special workspace: {}",
-                                &cli.cmd, &cli.class, e
-                            ),
-                            &cli.debug,
-                        );
-                    }
-                }
+                cli.move_to_workspace_silent(&regex_class);
             }
         }
         None => {
@@ -193,7 +257,7 @@ fn main() {
                     debug!("Executed command: {}", &final_cmd);
                 }
                 Err(e) => {
-                    handle_error(&format!("Failed to execute command: {}", e), &cli.debug);
+                    handle_error(&format!("Failed to execute command: {}", e), cli.debug);
                 }
             }
         }
