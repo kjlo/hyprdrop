@@ -39,32 +39,8 @@ fn notify(msg: &str) {
     }
 }
 
-/// Custom parsing function for comma-delimited values
-fn parse_arguments(cli: &Cli) -> String {
-    // if cli.cmd == "alacritty" || cli.cmd == "kitty" {
-    //     if let Some(args) = cli.cmd_args.clone() {
-    //         if !args.is_empty() {
-    //             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
-    //             return format!("{} --class={} -e {}", &cli.cmd, &cli.class, &cmd_args);
-    //         }
-    //     }
-    //     return format!("{} --class={} ", &cli.cmd, &cli.class);
-    // } else if cli.cmd == "foot" {
-    //     if let Some(args) = cli.cmd_args.clone() {
-    //         if !args.is_empty() {
-    //             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
-    //             return format!(
-    //                 "{} --title={} --override locked-title=yes -e {}",
-    //                 &cli.cmd, &cli.class, &cmd_args
-    //             );
-    //         }
-    //     }
-    //     return format!(
-    //         "{} --title={} --override locked-title=yes ",
-    //         &cli.cmd, &cli.class
-    //     );
-    // }
-    // "".to_string()
+/// Build the execution command.
+fn arrange_execution_cmd(cli: &Cli) -> String {
     if let Some(args) = &cli.cmd_args {
         if !args.is_empty() {
             let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
@@ -99,6 +75,7 @@ fn handle_error(e: &str, debug: bool) {
 }
 
 trait LocalCLient {
+    /// Get the title or class of the client according to the given command
     fn get_title_or_class(&self, cmd: &str) -> &str;
 }
 
@@ -112,9 +89,11 @@ impl LocalCLient for Client {
 }
 
 impl Cli {
+    /// Convert the class give from CLI to a regex string
     fn to_regex(&self) -> String {
         format!("^{}$", self.class)
     }
+    /// Get the window identifier
     fn get_window_identifier<'a>(&self, regex_class: &'a str) -> Option<WindowIdentifier<'a>> {
         match self.cmd.as_str() {
             "foot" => Some(WindowIdentifier::Title(regex_class)),
@@ -122,15 +101,7 @@ impl Cli {
             _ => None,
         }
     }
-    // fn window_identifier<'a>(&self) -> Option<WindowIdentifier<'a>> {
-    //     let regex_class = self.to_regex();
-    //     match self.cmd.as_str() {
-    //         "foot" => Some(WindowIdentifier::Title(&regex_class)),
-    //         "alacritty" | "kitty" => Some(WindowIdentifier::ClassRegularExpression(&regex_class)),
-    //         _ => None,
-    //     }
-    // }
-
+    /// Silently move the window to the special workspace.
     fn move_to_workspace_silent(&self, regex_class: &str) {
         let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
             WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
@@ -152,6 +123,7 @@ impl Cli {
             }
         }
     }
+    /// Move the window to the active workspace.
     fn move_to_workspace(&self, regex_class: &str, workspace_id: i32) {
         let res = Dispatch::call(DispatchType::MoveToWorkspace(
             WorkspaceIdentifierWithSpecial::Id(workspace_id),
@@ -190,8 +162,7 @@ fn main() {
         .init()
         .unwrap();
 
-    // let regex_class = format!("^{}$", &cli.class);
-    let regex_class = cli.to_regex();
+    let regex_criteria = cli.to_regex();
 
     let clients = Clients::get().unwrap();
     let active_workspace_id = Workspace::get_active().unwrap().id;
@@ -209,11 +180,11 @@ fn main() {
                     // NOTE: It seems weird to first move the client to the special workspace and then
                     // moving it to the active workspace but this is the only way to prevent
                     // the freezing when retrieving from another non-special workspace.
-                    cli.move_to_workspace_silent(&regex_class);
+                    cli.move_to_workspace_silent(&regex_criteria);
                 }
 
                 // Moving to current active workspace
-                cli.move_to_workspace(&regex_class, active_workspace_id);
+                cli.move_to_workspace(&regex_criteria, active_workspace_id);
 
                 // Bring to the front the current window. This fix the issue in case there are two
                 // floating windows in the same workspace
@@ -232,12 +203,12 @@ fn main() {
             } else {
                 // Case 2: There is a client with the same class in the current workspace.
                 // Move to the special workspace (hide it)
-                cli.move_to_workspace_silent(&regex_class);
+                cli.move_to_workspace_silent(&regex_criteria);
             }
         }
         None => {
             // Case 3: There is no client with the same class.
-            let parsed_args = parse_arguments(&cli);
+            let parsed_args = arrange_execution_cmd(&cli);
             let final_cmd = format!(
                 "{} {}",
                 if cli.background {
