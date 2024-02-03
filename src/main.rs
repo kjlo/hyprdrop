@@ -226,9 +226,9 @@ fn main() {
             // Case 3: There is no client with the same class.
             let parsed_args = cli.arrange_execution_cmd();
             let final_cmd = format!(
-                "{} {}",
+                "{}{}",
                 if cli.background {
-                    "[workspace special:hyprdrop silent]"
+                    "[workspace special:hyprdrop silent] "
                 } else {
                     ""
                 },
