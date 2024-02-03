@@ -25,6 +25,9 @@ struct Cli {
     #[structopt(name = "ARGS", short = "a", long = "args", help = "Command arguments")]
     cmd_args: Option<String>,
 
+    #[structopt(short = "b", long, help = "Launch in the background")]
+    background: bool,
+
     #[structopt(short, long, help = "Enable debug mode")]
     debug: bool,
 }
@@ -170,8 +173,18 @@ fn main() {
             }
         }
         None => {
-            // Case 3: No client with the specified class found, execute command
-            let final_cmd = parse_arguments(&cli);
+            // Case 3: There is no client with the same class.
+            let parsed_args = parse_arguments(&cli);
+            let final_cmd = format!(
+                "{} {}{}",
+                &cli.cmd,
+                if cli.background {
+                    "[workspace special:hyprdrop silent] "
+                } else {
+                    ""
+                },
+                &parsed_args
+            );
             debug!(
                 "No previous matching app was found, executing command: {}",
                 &final_cmd
@@ -181,7 +194,6 @@ fn main() {
                 Ok(_) => {
                     debug!("Executed command: {}", &final_cmd);
                 }
-
                 Err(e) => {
                     handle_error(&format!("Failed to execute command: {}", e), &cli.debug);
                 }
