@@ -30,15 +30,18 @@ bind = $mainMod, I, exec, hyprdrop alacritty --class=bottom_hyprdrop --args btm,
 ```
 >[!NOTE]
 >
-> The argument class name has a simple requirement:
-> - It must be different than the default class name of your terminal if you want to use as a separate application with special rules.
+> The argument class name must be a unique name if you want to use as a separate application with
+> special window rules.
 
 >[!WARNING]
 >
-> Hyprdrop currently supports only terminal applications. I have not tested it with other types yet.
+> Hyprdrop was initially designed with TUI applications in mind. Theoretically, it should work with
+> any GUI application. However, one consideration is that it is not usable with the `args` flag, as
+> it is specifically designed for terminal emulators.
 
 ### Window Rules
-For better experience you can add some window rules to your hyprland config. This create a centered floating window with defined size.
+For better experience you can add some window rules to your Hyprland config. This create a centered
+floating window with defined size.
 ```
 windowrulev2 = float, class:^(alacritty_hyprdrop)$
 windowrulev2 = center, class:^(alacritty_hyprdrop)$
