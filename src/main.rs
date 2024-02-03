@@ -13,16 +13,25 @@ const SPECIAL_WORKSPACE: &str = "hyprdrop";
 #[derive(StructOpt)]
 #[structopt(
     name = "hyprdrop",
-    about = "Generate a Hyprland window, relocate it to a dropdown, and seamlessly toggle its visibility across various workspaces."
+    about = "Generate an Hyprland window, relocate it to a dropdown, and seamlessly toggle its visibility across various workspaces."
 )]
 struct Cli {
     #[structopt(name = "COMMAND", help = "Command to execute")]
     cmd: String,
 
-    #[structopt(short, long, help = "Class of command")]
+    #[structopt(
+        short,
+        long,
+        help = "Command Class. This argument is at user's election when applications allow you to modify the class or title of a window, case contrary use the defined by the app you want to launch."
+    )]
     class: String,
 
-    #[structopt(name = "ARGS", short = "a", long = "args", help = "Command arguments")]
+    #[structopt(
+        name = "ARGS",
+        short = "a",
+        long = "args",
+        help = "Command arguments, you must use comma-separated values."
+    )]
     cmd_args: Option<String>,
 
     #[structopt(short = "b", long, help = "Launch in the background")]
@@ -36,33 +45,6 @@ struct Cli {
 fn notify(msg: &str) {
     if let Err(e) = Dispatch::call(DispatchType::Exec(&format!("notify-send {}", msg))) {
         error!("Failed to notify: {}", e);
-    }
-}
-
-/// Build the execution command.
-fn arrange_execution_cmd(cli: &Cli) -> String {
-    if let Some(args) = &cli.cmd_args {
-        if !args.is_empty() {
-            let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
-            return match cli.cmd.as_str() {
-                "alacritty" | "kitty" => {
-                    format!("{} --class={} -e {}", &cli.cmd, &cli.class, &cmd_args)
-                }
-                "foot" => format!(
-                    "{} --title={} --override locked-title=yes -e {}",
-                    &cli.cmd, &cli.class, &cmd_args
-                ),
-                _ => "".to_string(),
-            };
-        }
-    }
-    match cli.cmd.as_str() {
-        "alacritty" | "kitty" => format!("{} --class={}", &cli.cmd, &cli.class),
-        "foot" => format!(
-            "{} --title={} --override locked-title=yes",
-            &cli.cmd, &cli.class
-        ),
-        _ => "".to_string(),
     }
 }
 
@@ -145,6 +127,40 @@ impl Cli {
             }
         }
     }
+    /// Build the execution command.
+    fn arrange_execution_cmd(&self) -> String {
+        // If there are arguments, add them to the command
+        if let Some(args) = self.cmd_args.clone() {
+            if !args.is_empty() {
+                let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
+                return match self.cmd.as_str() {
+                    "alacritty" | "kitty" => {
+                        format!("{} --class={} -e {}", self.cmd, self.class, &cmd_args)
+                    }
+                    "foot" => format!(
+                        "{} --title={} --override locked-title=yes -e {}",
+                        self.cmd, self.class, &cmd_args
+                    ),
+                    // TODO: Add here other commands
+
+                    // The default command for every other application is {cmd} + {arguments}
+                    _ => format!("{} {}", self.cmd, &cmd_args),
+                };
+            }
+        }
+        // No arguments given
+        match self.cmd.as_str() {
+            "alacritty" | "kitty" => format!("{} --class={}", self.cmd, self.class),
+            "foot" => format!(
+                "{} --title={} --override locked-title=yes",
+                self.cmd, self.class
+            ),
+            // TODO: Add here other commands
+
+            // The default command for every other application is {cmd}
+            _ => self.cmd.clone(),
+        }
+    }
 }
 
 fn main() {
@@ -208,7 +224,7 @@ fn main() {
         }
         None => {
             // Case 3: There is no client with the same class.
-            let parsed_args = arrange_execution_cmd(&cli);
+            let parsed_args = cli.arrange_execution_cmd();
             let final_cmd = format!(
                 "{} {}",
                 if cli.background {
