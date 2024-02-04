@@ -22,24 +22,47 @@ This will create a binary in your `$HOME/.cargo/bin`. You must check that this a
 
 
 ## Usage
-The preferred way to use it is by adding it as a binding to your Hyprland config, like this:
+The preferred way to use it is by adding it as a binding to your Hyprland config:
 ```
-bind = $mainMod, U, exec, hyprdrop alacritty --class alacritty_hyprdrop
+bind = $mainMod, U, exec, hyprdrop alacritty -c alacritty_hyprdrop
 ```
-Additionally, if you want to launch a TUI application with your terminal:
+Additionally, if you want to launch a TUI application:
 ```
-bind = $mainMod, I, exec, hyprdrop alacritty --class=bottom_hyprdrop --args btm,-b
+bind = $mainMod, I, exec, hyprdrop alacritty --class=bottom_hyprdrop --args=btm,-b
 ```
 >[!NOTE]
 >
 > The argument class name must be a unique name if you want to use as a separate application with
 > special window rules.
 
+>[!NOTE]
+>
+> Check that for TUI applications it's not required to type the `-e` flag that most
+> terminal emulators use when executing a command.
+
 >[!WARNING]
 >
+> Hyprdrop have only be designed with Kitty and Alacritty in mind.
 > Hyprdrop was initially designed with TUI applications in mind. Theoretically, it should work with
 > any GUI application. However, one consideration is that it is not usable with the `args` flag, as
 > it is specifically designed for terminal emulators.
+
+### Supported Terminal Emulators
+The following terminal emulators are supported:
+| Terminal | Supported | Identifier |
+|--------------- | --- | ----- |
+| Alacritty      | yes | class |
+| Kitty          | yes | class |
+| Wezterm        | yes | class |
+| Gnome Terminal | yes | title |
+| Foot           | yes | title |
+| Konsole        | no  | -     |
+| Rio            | [no](https://github.com/raphamorim/rio/issues/405)  | -     |
+
+>[!NOTE]
+>
+> The identifier is needed by Hyprdrop to identify the dropped window and by Hyprland to apply window rules.
+
 
 ### Window Rules
 For better experience you can add some window rules to your Hyprland config. This create a centered
