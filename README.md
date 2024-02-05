@@ -22,7 +22,7 @@ This will create a binary in your `$HOME/.cargo/bin`. You must verify that this 
 
 
 ## Usage
-The preferred way to use it's by adding this as a binding to your Hyprland config:
+The preferred way to use it's by adding this as bindings to your Hyprland config:
 ```
 bind = $mainMod, U, exec, hyprdrop alacritty -i alacritty_hyprdrop
 ```
@@ -51,7 +51,7 @@ You can check the `hyprdrop --help` command to see all the available options.
 > with the `args` flag, as it is specifically designed for terminal emulators.
 
 ### Supported Terminal Emulators
-The following terminal emulators are supported:
+The following list shows which terminal emulators are supported by Hyprdrop:
 | Terminal | Supported | Window Identifier (for Hyprland Config)|
 |--------------- | ----- | -------- |
 | Alacritty      | yes   | class    |
