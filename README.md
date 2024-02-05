@@ -18,46 +18,55 @@ git clone https://github.com/kjlo/hyprdrop
 cd hyprdrop
 cargo install --path .
 ```
-This will create a binary in your `$HOME/.cargo/bin`. You must check that this address it's in your `$PATH`.
+This will create a binary in your `$HOME/.cargo/bin`. You must verify that this address it's in your `$PATH`.
 
 
 ## Usage
-The preferred way to use it is by adding it as a binding to your Hyprland config:
+The preferred way to use it's by adding this as a binding to your Hyprland config:
 ```
-bind = $mainMod, U, exec, hyprdrop alacritty -c alacritty_hyprdrop
+bind = $mainMod, U, exec, hyprdrop alacritty -i alacritty_hyprdrop
 ```
 Additionally, if you want to launch a TUI application:
 ```
-bind = $mainMod, I, exec, hyprdrop alacritty --class=bottom_hyprdrop --args=btm,-b
+bind = $mainMod, I, exec, hyprdrop alacritty --identifier=bottom_hyprdrop --args=btm,-b
 ```
+You can check the `hyprdrop --help` command to see all the available options.
+
+
 >[!NOTE]
 >
-> The argument class name must be a unique name if you want to use as a separate application with
+> The argument identifier must be a unique name if you want to use as a separate application with
 > special window rules.
 
 >[!NOTE]
 >
 > Check that for TUI applications it's not required to type the `-e` flag that most
-> terminal emulators use when executing a command.
+> terminal emulators use when executing a command, this is implemented by Hyprdrop.
 
 >[!WARNING]
 >
-> Hyprdrop have only be designed with Kitty and Alacritty in mind.
 > Hyprdrop was initially designed with TUI applications in mind. Theoretically, it should work with
-> any GUI application. However, one consideration is that it is not usable with the `args` flag, as
-> it is specifically designed for terminal emulators.
+> any GUI application or TUI application not supported (you are obligated to use the original
+> class/title to identify the window). However, one consideration is that GUI apps are not usable
+> with the `args` flag, as it is specifically designed for terminal emulators.
 
 ### Supported Terminal Emulators
 The following terminal emulators are supported:
-| Terminal | Supported | Identifier |
-|--------------- | --- | ----- |
-| Alacritty      | yes | class |
-| Kitty          | yes | class |
-| Wezterm        | yes | class |
-| Gnome Terminal | yes | title |
-| Foot           | yes | title |
-| Konsole        | no  | -     |
-| Rio            | [no](https://github.com/raphamorim/rio/issues/405)  | -     |
+| Terminal | Supported | Window Identifier (for Hyprland Config)|
+|--------------- | ---- | -------- |
+| Alacritty      | yes  | class    |
+| Kitty          | yes  | class    |
+| Wezterm        | yes  | class    |
+| Gnome Terminal | yes  | title    |
+| Foot           | yes  | title    |
+| Konsole        | yes* | title    |
+| Rio            | [no](https://github.com/raphamorim/rio/issues/405)   | -        |
+
+* To apply window rules for Konsole you need to use a partial pattern matching because Konsole modify
+the title of the window to something like this: `[ASSIGNED_IDENTIFIER_BY_USER] — Konsole`. So you must
+create a window rule with this syntax: `windowrulev2 = [RULE], title:^[ASSIGNED_IDENTIFIER_BY_USER] — 
+Konsole$` or simply `windowrulev2 = [RULE], title:^[ASSIGNED_TITLE_BY_USER]`
+ 
 
 >[!NOTE]
 >
@@ -65,17 +74,24 @@ The following terminal emulators are supported:
 
 
 ### Window Rules
-For better experience you can add some window rules to your Hyprland config. This create a centered
-floating window with defined size.
+For better experience you can add some window rules to your Hyprland config. This could create a
+centered floating window with defined size.
 ```
 windowrulev2 = float, class:^(alacritty_hyprdrop)$
 windowrulev2 = center, class:^(alacritty_hyprdrop)$
 windowrulev2 = size 1460 810, class:^(alacritty_hyprdrop)$
+windowrulev2 = float, title:^(foot_hyprdrop)$
+windowrulev2 = float, title:^(gnome-terminal_hyprdrop)
 ```
 
-And some additional rules for TUI apps:
+And some additional rules for TUI apps which is the same as above:
 ```
 windowrulev2 = float, class:^(bottom_hyprdrop)$
 windowrulev2 = center, class:^(bottom_hyprdrop)$
 windowrulev2 = size 1460 810, class:^(bottom_hyprdrop)$
 ```
+## Disclaimers
+
+- This project is not affiliated with [Hyprland](https://github.com/hyprwm/Hyprland).
+- This project is in its early stages so it may not work as expected.
+- I'm not a programmer so I don't know how to write good code.
