@@ -53,16 +53,16 @@ You can check the `hyprdrop --help` command to see all the available options.
 ### Supported Terminal Emulators
 The following terminal emulators are supported:
 | Terminal | Supported | Window Identifier (for Hyprland Config)|
-|--------------- | ---- | -------- |
-| Alacritty      | yes  | class    |
-| Kitty          | yes  | class    |
-| Wezterm        | yes  | class    |
-| Gnome Terminal | yes  | title    |
-| Foot           | yes  | title    |
-| Konsole        | yes[1] | title    |
-| Rio            | [no](https://github.com/raphamorim/rio/issues/405)   | -        |
+|--------------- | ----- | -------- |
+| Alacritty      | yes   | class    |
+| Kitty          | yes   | class    |
+| Wezterm        | yes   | class    |
+| Gnome Terminal | yes   | title    |
+| Foot           | yes   | title    |
+| Konsole        | yes[^1] | title    |
+| Rio            | [no](https://github.com/raphamorim/rio/issues/405)    | -        |
 
-[1]: To apply window rules for Konsole you need to use a partial pattern matching because Konsole modify
+[^1]: To apply window rules for Konsole you need to use a partial pattern matching because Konsole modify
 the title of the window to something like this: `[ASSIGNED_IDENTIFIER_BY_USER] — Konsole`. So you must
 create a window rule with this syntax: `windowrulev2 = [RULE], title:^[ASSIGNED_IDENTIFIER_BY_USER] — 
 Konsole$` or simply `windowrulev2 = [RULE], title:^[ASSIGNED_TITLE_BY_USER]`
