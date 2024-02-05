@@ -1,9 +1,3 @@
-use std::{
-    borrow::Cow,
-    fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Write},
-};
-
 use hyprland::{
     data::{Client, Clients, Workspace},
     dispatch::{Dispatch, DispatchType, WindowIdentifier, WorkspaceIdentifierWithSpecial},
@@ -15,7 +9,6 @@ use structopt::StructOpt;
 use time::macros::format_description;
 
 const SPECIAL_WORKSPACE: &str = "hyprdrop";
-const ADDRESSES_PATH_FILE: &str = "/tmp/hyprdrop";
 
 #[derive(StructOpt)]
 #[structopt(
@@ -27,11 +20,11 @@ struct Cli {
     cmd: String,
 
     #[structopt(
-        short,
-        long,
-        help = "Command Class. This argument is at user's election when applications allow you to modify the class or title of a window, case contrary use the defined by the app you want to launch."
+        short = "i",
+        long = "identifier",
+        help = "Command identifier. This argument is at the user's discretion when applications allow modification of the class/title of a window. Otherwise, use the one defined by the app you want to launch."
     )]
-    class: String,
+    identifier: String,
 
     #[structopt(
         name = "ARGS",
@@ -44,14 +37,14 @@ struct Cli {
     #[structopt(short = "b", long, help = "Launch in the background")]
     background: bool,
 
-    #[structopt(short, long, help = "Enable debug mode")]
+    #[structopt(short = "d", long, help = "Enable debug mode")]
     debug: bool,
 }
 
-struct ClientWithAddress {
-    regex_match: String,
-    address: Address,
-}
+// struct ClientWithAddress {
+//     regex_match: String,
+//     address: Address,
+// }
 
 /// Send a notification with notify-send.
 fn notify(msg: &str) {
@@ -70,179 +63,101 @@ fn handle_error(e: &str, debug: bool) {
 
 trait LocalCLient {
     /// Check if the client matches the criteria
-    fn check_title_or_class_or_address(&self, cli: &Cli, addresses: &[ClientWithAddress]) -> bool;
+    fn check_title_or_class_or_address(&self, cli: &Cli, address: &Window) -> bool;
 }
 
 impl LocalCLient for Client {
-    fn check_title_or_class_or_address(&self, cli: &Cli, addresses: &[ClientWithAddress]) -> bool {
+    fn check_title_or_class_or_address(&self, cli: &Cli, address: &Window) -> bool {
         match cli.cmd.as_str() {
-            "foot" => self.title == cli.class,
+            "foot" => self.title == cli.identifier,
             // NOTE: gnome-terminal ignores assigning class and name variables. At tests, only
             // worked the initial title which is assigned with the `title` flag, but when the
             // terminal is opened the title is changed. Besides, hyprland-rs doesn't support the
             // WindowIdentifier by initial_title, so we have to use the address instead.
-            "gnome-terminal" => check_addresses(&cli.class, addresses, self),
+            "gnome-terminal" => {
+                &self.address == address.get_address().as_ref().unwrap_or(&Address::new(""))
+            }
+            "konsole" => self.title.contains(&cli.identifier),
             // TODO: Add here other commands
 
-            // now to be the same for most applications
             // Alacritty, Kitty and Wezterm all accept class name as parameter, and is assumed for
-            _ => self.class == cli.class,
+            // now to be the same for most applications
+            _ => self.class == cli.identifier,
         }
     }
 }
 
-fn write_address_in_file(regex_match: &str, address: Address) {
-    // Read the file
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(ADDRESSES_PATH_FILE)
-        .ok()
-        .unwrap();
+#[derive(Debug)]
+enum Window<'a> {
+    /// Normal window that only contains the WindowIdentifier Enum
+    Normal(Option<WindowIdentifier<'a>>),
+    /// Special window. It's used to adds more information to the Window data. Only
+    /// gnome-terminal requires it because this app doesn't support any conventional way of
+    /// identifying the window so must be added the address.
+    Special((Option<WindowIdentifier<'a>>, Option<Address>)),
+}
 
-    let mut lines: Vec<String> = BufReader::new(&file)
-        .lines()
-        .map(|line| line.unwrap())
-        .collect();
-
-    // Find the line with the specified regex_match
-    if let Some(index) = lines.iter().position(|line| line.starts_with(regex_match)) {
-        // Replace the second column with the new value
-        let new_line = format!("{}:{}", regex_match, address);
-        lines[index] = new_line;
-
-        // Write the modified lines back to the file
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(ADDRESSES_PATH_FILE)
-            .ok()
-            .unwrap();
-
-        file.write_all(lines.join("\n").as_bytes()).ok().unwrap();
-        debug!(
-            "Updated {}:{} in file: {}",
-            regex_match, address, ADDRESSES_PATH_FILE
-        );
+impl<'a> Window<'a> {
+    /// Extract the identifier from Window Enum
+    fn get_window_identifier(&self) -> Option<WindowIdentifier> {
+        match self {
+            Window::Normal(identifier) => identifier.as_ref().cloned(),
+            Window::Special((identifier, _)) => identifier.as_ref().cloned(),
+        }
+    }
+    /// Extract the address from Window Enum
+    fn get_address(&self) -> Option<Address> {
+        match self {
+            Window::Special((_, address)) => address.as_ref().cloned(),
+            Window::Normal(_) => None,
+        }
     }
 }
-
-/// Read from file the address based on regex_match and return it if found
-fn read_address_from_file(regex_match: &str, clients: &Clients) -> Option<Address> {
-    File::open(ADDRESSES_PATH_FILE).ok().and_then(|file| {
-        io::BufReader::new(file)
-            .lines()
-            .find(|line| line.as_ref().map_or(false, |l| l.starts_with(regex_match)))
-            .and_then(|line| {
-                let binding = line.ok()?;
-                let address = binding.split(':').nth(1)?.trim();
-                // Check if address is already in file list
-                let found_address = clients
-                    .iter()
-                    .any(|client| client.address.to_string() == address);
-                if found_address {
-                    Some(Address::new(address))
-                } else {
-                    None
-                }
-            })
-    })
-}
-
-fn check_addresses(regex_match: &str, addresses: &[ClientWithAddress], client: &Client) -> bool {
-    addresses
-        .iter()
-        .any(|address| client.address == address.address && regex_match == address.regex_match)
-}
-
-/// Open file and append into client the content of the file
-fn get_addresses_file() -> Vec<ClientWithAddress> {
-    let mut client: Vec<ClientWithAddress> = Vec::new();
-    if let Ok(file) = File::open(ADDRESSES_PATH_FILE) {
-        io::BufReader::new(file).lines().for_each(|line| {
-            if let Ok(binding) = line {
-                let columns: Vec<&str> = binding.split(':').collect();
-                client.push(ClientWithAddress {
-                    regex_match: columns[0].to_string(),
-                    address: Address::new(columns[1].to_string()),
-                });
-            }
-        });
-    }
-    client
-    // let mut client: Vec<ClientWithAddress> = Vec::new();
-    // File::open(ADDRESSES_PATH_FILE).ok().and_then(|file| {
-    //     io::BufReader::new(file).lines().map(|line| {
-    //         let binding = line.ok().unwrap();
-    //         let columns: Vec<&str> = binding.split(':').collect();
-    //         // appends the columns to client
-    //         client.push(ClientWithAddress {
-    //             regex_match: columns[0].to_string(),
-    //             address: Address::new(columns[1].to_string()),
-    //         });
-    //     })
-    // });
-    // client
-}
-// fn read_addres_from_file(regex_match: &str) -> Option<String> {
-//
-//     if let Ok(file) = File::open(ADDRESSES_PATH_FILE) {
-//         let reader = io::BufReader::new(file);
-//
-//         let mut address = "".to_string();
-//         reader.lines().for_each(|line| {
-//             if let Ok(l) = line {
-//                 let columns: Vec<&str> = l.split(':').collect();
-//                 // Check if the first column matches the target string
-//                 if let Some(first_column) = columns.first() {
-//                     if *first_column == regex_match {
-//                         // Return the value from the second column
-//                         if let Some(second_column) = columns.get(1) {
-//                             address = second_column.to_string();
-//                         }
-//                     }
-//                 }
-//             }
-//         });
-//         if !address.is_empty() {
-//             return Some(address);
-//         }
-//     }
-//     None
-// }
 
 impl Cli {
     /// Convert the class give from CLI to a regex string
-    fn to_regex(&self) -> String {
-        format!("^{}$", self.class)
+    fn to_pattern_match(&self) -> String {
+        match self.cmd.as_str() {
+            "konsole" => format!("{} — Konsole", self.identifier),
+            _ => format!("^{}$", self.identifier),
+        }
     }
     /// Get the window identifier
-    fn get_window_identifier<'a>(&self, regex_match: &'a str) -> Option<WindowIdentifier<'a>> {
+    fn get_window_identifier<'a>(
+        &'a self,
+        clients: &'a Clients,
+        pattern_match: &'a str,
+    ) -> Window<'a> {
         match self.cmd.as_str() {
-            "alacritty" | "kitty" | "wezterm" => {
-                Some(WindowIdentifier::ClassRegularExpression(regex_match))
-            }
-            "foot" | "gnome-terminal" => Some(WindowIdentifier::Title(regex_match)),
-            // It will be assumed that every other application has a class identifier
-            _ => Some(WindowIdentifier::ClassRegularExpression(regex_match)),
+            "alacritty" | "kitty" | "wezterm" => Window::Normal(Some(
+                WindowIdentifier::ClassRegularExpression(pattern_match),
+            )),
+            "foot" => Window::Normal(Some(WindowIdentifier::Title(pattern_match))),
+            "gnome-terminal" => self.get_window_identifier_by_address(clients, &self.identifier),
+            "konsole" => Window::Normal(Some(WindowIdentifier::Title(pattern_match))),
+            // It will be assumed that every other application has a class identifier. Maybe this
+            // could change in the future if needed to make it more flexible
+            _ => Window::Normal(Some(WindowIdentifier::ClassRegularExpression(
+                pattern_match,
+            ))),
         }
     }
     /// Silently move the window to the special workspace.
-    fn move_to_workspace_silent(&self, regex_match: &str) {
+    fn move_to_workspace_silent(&self, window_identifier: &Window) {
         let res = Dispatch::call(DispatchType::MoveToWorkspaceSilent(
             WorkspaceIdentifierWithSpecial::Special(Some(SPECIAL_WORKSPACE)),
-            self.get_window_identifier(regex_match),
+            window_identifier.get_window_identifier(),
         ));
         match res {
             Ok(_) => debug!(
                 "Moved {}:{} to workspace: {}",
-                self.cmd, &self.class, SPECIAL_WORKSPACE
+                self.cmd, &self.identifier, SPECIAL_WORKSPACE
             ),
             Err(e) => {
                 handle_error(
                     &format!(
                         "Failed to move {}:{} to workspace: {}",
-                        self.cmd, self.class, e
+                        self.cmd, self.identifier, e
                     ),
                     self.debug,
                 );
@@ -250,21 +165,21 @@ impl Cli {
         }
     }
     /// Move the window to the active workspace.
-    fn move_to_workspace(&self, regex_match: &str, workspace_id: i32) {
+    fn move_to_workspace(&self, window_identifier: &Window, workspace_id: i32) {
         let res = Dispatch::call(DispatchType::MoveToWorkspace(
             WorkspaceIdentifierWithSpecial::Id(workspace_id),
-            self.get_window_identifier(regex_match),
+            window_identifier.get_window_identifier(),
         ));
         match res {
             Ok(_) => debug!(
                 "Moved {}:{} to active workspace id: {}",
-                self.cmd, self.class, workspace_id
+                self.cmd, self.identifier, workspace_id
             ),
             Err(e) => {
                 handle_error(
                     &format!(
                         "Failed to move {}:{} to active workspace id: {}",
-                        self.cmd, self.class, e
+                        self.cmd, self.identifier, e
                     ),
                     self.debug,
                 );
@@ -279,17 +194,26 @@ impl Cli {
                 let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
                 return match self.cmd.as_str() {
                     "alacritty" | "kitty" => {
-                        format!("{} --class={} -e {}", self.cmd, self.class, &cmd_args)
+                        format!("{} --class={} -e {}", self.cmd, self.identifier, &cmd_args)
                     }
                     "foot" => format!(
                         "{} --title={} --override locked-title=yes -e {}",
-                        self.cmd, self.class, &cmd_args
+                        self.cmd, self.identifier, &cmd_args
                     ),
                     "wezterm" => {
-                        format!("{} start --class={} -- {}", self.cmd, self.class, &cmd_args)
+                        format!(
+                            "{} start --class={} -- {}",
+                            self.cmd, self.identifier, &cmd_args
+                        )
                     }
                     "gnome-terminal" => {
-                        format!("{} --title={} -- {}", self.cmd, self.class, &cmd_args)
+                        format!("{} --title={} -- {}", self.cmd, self.identifier, &cmd_args)
+                    }
+                    "konsole" => {
+                        format!(
+                            "{} -p tabtitle={} -e {}",
+                            self.cmd, self.identifier, &cmd_args
+                        )
                     }
                     // TODO: Add here other commands
 
@@ -300,13 +224,14 @@ impl Cli {
         }
         // No arguments given
         match self.cmd.as_str() {
-            "alacritty" | "kitty" => format!("{} --class={}", self.cmd, self.class),
+            "alacritty" | "kitty" => format!("{} --class={}", self.cmd, self.identifier),
             "foot" => format!(
                 "{} --title={} --override locked-title=yes",
-                self.cmd, self.class
+                self.cmd, self.identifier
             ),
-            "wezterm" => format!("{} start --class={}", self.cmd, self.class),
-            "gnome-terminal" => format!("{} --title={}", self.cmd, self.class),
+            "wezterm" => format!("{} start --class={}", self.cmd, self.identifier),
+            "gnome-terminal" => format!("{} --title={}", self.cmd, self.identifier),
+            "konsole" => format!("{} -p tabtitle={}", self.cmd, self.identifier),
             // TODO: Add here other commands
 
             // The default command for every other application is {cmd}
@@ -314,18 +239,27 @@ impl Cli {
         }
     }
 
-    /// Get the address based on the initial title of the window
-    fn get_address_by_initial_title(&self, regex_match: &str) -> Option<Address> {
-        debug!(
-            "Getting address by initial title: {:#?}",
-            Clients::get().unwrap()
-        );
-        Clients::get()
-            .unwrap()
-            .clone()
+    /// Get the address based on the initial title of the window.
+    /// NOTE: This function is only required by gnome-terminal
+    fn get_window_identifier_by_address<'a>(
+        &self,
+        clients: &'a Clients,
+        name_matching: &'a str,
+    ) -> Window<'a> {
+        clients
             .iter()
-            .find(|client| client.initial_title == regex_match)
-            .map(|client| client.address.clone())
+            .find(|client| client.initial_title == name_matching)
+            .map(|client| {
+                debug!(
+                    "Found this address: {} associated to initial_title: {}",
+                    client.address, name_matching
+                );
+                Window::Special((
+                    Some(WindowIdentifier::Address(client.address.clone())),
+                    Some(client.address.clone()),
+                ))
+            })
+            .unwrap_or_else(|| Window::Special((None, None)))
     }
 }
 
@@ -344,17 +278,19 @@ fn main() {
         .init()
         .unwrap();
 
-    let regex_match = cli.to_regex();
-
+    let regex_match = cli.to_pattern_match();
     let clients = Clients::get().unwrap();
-    let addresses = get_addresses_file();
+    debug!("Clients: {:#?}", clients);
+    let window = cli.get_window_identifier(&clients, &regex_match);
+    debug!("Window identifier: {:?}", window);
+    // let addresses = get_addresses_file();
     let active_workspace_id = Workspace::get_active().unwrap().id;
     match clients
         .iter()
-        .find(|client| client.check_title_or_class_or_address(&cli, &addresses))
+        .find(|client| client.check_title_or_class_or_address(&cli, &window))
     {
         Some(client) => {
-            // Case 1: There is a client with the same class in a different workspace
+            // Case 1: There is a client with the same identifier in a different workspace
             // Move from special workspace or another workspace to the current one (show it)
             if client.workspace.id != active_workspace_id {
                 // Avoid moving to the special workspace if it's already there
@@ -362,11 +298,11 @@ fn main() {
                     // NOTE: It seems weird to first move the client to the special workspace and then
                     // moving it to the active workspace but this is the only way to prevent
                     // the freezing when retrieving from another non-special workspace.
-                    cli.move_to_workspace_silent(&regex_match);
+                    cli.move_to_workspace_silent(&window);
                 }
 
                 // Moving to current active workspace
-                cli.move_to_workspace(&regex_match, active_workspace_id);
+                cli.move_to_workspace(&window, active_workspace_id);
 
                 // Bring to the front the current window. This fix the issue in case there are two
                 // floating windows in the same workspace
@@ -383,13 +319,13 @@ fn main() {
                     }
                 }
             } else {
-                // Case 2: There is a client with the same class in the current workspace.
+                // Case 2: There is a client with the same identifier in the current workspace.
                 // Move to the special workspace (hide it)
-                cli.move_to_workspace_silent(&regex_match);
+                cli.move_to_workspace_silent(&window);
             }
         }
         None => {
-            // Case 3: There is no client with the same class.
+            // Case 3: There is no client with the same identifier.
             let parsed_args = cli.arrange_execution_cmd();
             let final_cmd = format!(
                 "{}{}",
@@ -403,11 +339,6 @@ fn main() {
             let res = Dispatch::call(DispatchType::Exec(&final_cmd));
             match res {
                 Ok(_) => {
-                    // Write the address in the addresses file
-                    write_address_in_file(
-                        &regex_match,
-                        cli.get_address_by_initial_title(&regex_match).unwrap(),
-                    );
                     debug!(
                         "No previous matching app was found, executed command: {}",
                         &final_cmd
