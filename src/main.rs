@@ -41,11 +41,6 @@ struct Cli {
     debug: bool,
 }
 
-// struct ClientWithAddress {
-//     regex_match: String,
-//     address: Address,
-// }
-
 /// Send a notification with notify-send.
 fn notify(msg: &str) {
     if let Err(e) = Dispatch::call(DispatchType::Exec(&format!("notify-send {}", msg))) {
