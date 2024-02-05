@@ -64,7 +64,7 @@ The following terminal emulators are supported:
 
 [^1]: To apply window rules for Konsole you need to use a partial pattern matching because Konsole modify
 the title of the window to something like this: `[ASSIGNED_IDENTIFIER_BY_USER] — Konsole`. So you must
-create a window rule with this syntax: `windowrulev2 = [RULE], title:^[ASSIGNED_IDENTIFIER_BY_USER] — 
+create a window rule with this syntax: `windowrulev2 = [RULE], title:^[ASSIGNED_IDENTIFIER_BY_USER] —
 Konsole$` or simply `windowrulev2 = [RULE], title:^[ASSIGNED_TITLE_BY_USER]`
  
 
