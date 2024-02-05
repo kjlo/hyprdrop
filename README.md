@@ -1,6 +1,6 @@
 # Hyprdrop
 
-Rust implementation of [Hdrop](https://github.com/Schweber/hdrop).
+Rust implementation of [hdrop](https://github.com/Schweber/hdrop).
 
 https://github.com/kjlo/hyprdrop/assets/79338048/cdf9fff6-690c-46cb-a7a6-0b2db14ab753
 
@@ -92,6 +92,6 @@ windowrulev2 = size 1460 810, class:^(bottom_hyprdrop)$
 ```
 ## Disclaimers
 
-- This project is not affiliated with [Hyprland](https://github.com/hyprwm/Hyprland).
+- This project is not affiliated with [Hyprland](https://github.com/hyprwm/Hyprland) or [hdrop](https://github.com/Schweber/hdrop).
 - This project is in its early stages so it may not work as expected.
 - I'm not a programmer so I don't know how to write good code.
