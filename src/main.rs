@@ -34,6 +34,13 @@ struct Cli {
     )]
     cmd_args: Option<String>,
 
+    #[structopt(
+        short = "e",
+        long,
+        help = "Environment variables to be loaded before execution command"
+    )]
+    env: Option<String>,
+
     #[structopt(short = "b", long, help = "Launch in the background")]
     background: bool,
 
@@ -72,7 +79,7 @@ impl LocalCLient for Client {
             // worked the initial title which is assigned with the `title` flag, but when the
             // terminal is opened the title is changed. Besides, hyprland-rs doesn't support the
             // WindowIdentifier by initial_title, so we have to use the address instead.
-            "gnome-terminal" => {
+            "gnome-terminal" | "spotify" => {
                 &self.address == address.get_address().as_ref().unwrap_or(&Address::new(""))
             }
 
@@ -134,7 +141,9 @@ impl Cli {
                 WindowIdentifier::ClassRegularExpression(pattern_match),
             )),
             "foot" => Window::Normal(Some(WindowIdentifier::Title(pattern_match))),
-            "gnome-terminal" => self.get_window_identifier_by_address(clients, &self.identifier),
+            "gnome-terminal" | "spotify" => {
+                self.get_window_identifier_by_address(clients, &self.identifier)
+            }
             "konsole" => Window::Normal(Some(WindowIdentifier::Title(pattern_match))),
             // It will be assumed that every other application has a class identifier. Maybe this
             // could change in the future if needed to make it more flexible
@@ -190,53 +199,67 @@ impl Cli {
     /// Build the execution command.
     fn arrange_execution_cmd(&self) -> String {
         // If there are arguments, add them to the command
-        if let Some(args) = self.cmd_args.clone() {
+        let cmd_envs: String = if let Some(env) = &self.env {
+            format!("{} ", env)
+        } else {
+            "".to_string()
+        };
+        if let Some(args) = &self.cmd_args {
             if !args.is_empty() {
-                let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
+                // let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
+                let cmd_args = self.split_args();
                 return match self.cmd.as_str() {
                     "alacritty" | "kitty" => {
-                        format!("{} --class={} -e {}", self.cmd, self.identifier, &cmd_args)
+                        format!(
+                            "{}{} --class={} -e {}",
+                            cmd_envs, self.cmd, self.identifier, &cmd_args
+                        )
                     }
                     "foot" => format!(
-                        "{} --title={} --override locked-title=yes -e {}",
-                        self.cmd, self.identifier, &cmd_args
+                        "{}{} --title={} --override locked-title=yes -e {}",
+                        cmd_envs, self.cmd, self.identifier, &cmd_args
                     ),
                     "wezterm" => {
                         format!(
-                            "{} start --class={} -- {}",
-                            self.cmd, self.identifier, &cmd_args
+                            "{}{} start --class={} -- {}",
+                            cmd_envs, self.cmd, self.identifier, &cmd_args
                         )
                     }
                     "gnome-terminal" => {
-                        format!("{} --title={} -- {}", self.cmd, self.identifier, &cmd_args)
+                        format!(
+                            "{}{} --title={} -- {}",
+                            cmd_envs, self.cmd, self.identifier, &cmd_args
+                        )
                     }
                     "konsole" => {
                         format!(
-                            "{} -p tabtitle={} -e {}",
-                            self.cmd, self.identifier, &cmd_args
+                            "{}{} -p tabtitle={} -e {}",
+                            cmd_envs, self.cmd, self.identifier, &cmd_args
                         )
                     }
                     // TODO: Add here other commands
 
                     // The default command for every other application is {cmd} + {arguments}
-                    _ => format!("{} {}", self.cmd, &cmd_args),
+                    _ => format!("{}{} {}", cmd_envs, self.cmd, &cmd_args),
                 };
             }
         }
         // No arguments given
         match self.cmd.as_str() {
-            "alacritty" | "kitty" => format!("{} --class={}", self.cmd, self.identifier),
+            "alacritty" | "kitty" => {
+                format!("{}{} --class={}", cmd_envs, self.cmd, self.identifier)
+            }
             "foot" => format!(
-                "{} --title={} --override locked-title=yes",
-                self.cmd, self.identifier
+                "{}{} --title={} --override locked-title=yes",
+                cmd_envs, self.cmd, self.identifier
             ),
-            "wezterm" => format!("{} start --class={}", self.cmd, self.identifier),
-            "gnome-terminal" => format!("{} --title={}", self.cmd, self.identifier),
-            "konsole" => format!("{} -p tabtitle={}", self.cmd, self.identifier),
+            "wezterm" => format!("{}{} start --class={}", cmd_envs, self.cmd, self.identifier),
+            "gnome-terminal" => format!("{}{} --title={}", cmd_envs, self.cmd, self.identifier),
+            "konsole" => format!("{}{} -p tabtitle={}", cmd_envs, self.cmd, self.identifier),
             // TODO: Add here other commands
 
             // The default command for every other application is {cmd}
-            _ => self.cmd.clone(),
+            _ => format!("{}{}", cmd_envs, self.cmd),
         }
     }
 
@@ -261,6 +284,32 @@ impl Cli {
                 ))
             })
             .unwrap_or_else(|| Window::Special((None, None)))
+    }
+
+    fn split_args(&self) -> String {
+        if let Some(args) = &self.cmd_args {
+            let mut result = String::new();
+            let mut escape = false;
+            for c in args.chars() {
+                if escape {
+                    if c == ',' {
+                        result.push(',');
+                    } else {
+                        result.push(' ');
+                        result.push(c);
+                    }
+                    escape = false;
+                } else {
+                    match c {
+                        '\\' => escape = true,
+                        ',' => result.push(' '),
+                        _ => result.push(c),
+                    }
+                }
+            }
+            return result;
+        }
+        "".to_string()
     }
 }
 
