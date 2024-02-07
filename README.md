@@ -24,10 +24,16 @@ This will create a binary in your `$HOME/.cargo/bin`. You must verify that this 
 ## Usage
 The preferred way to use it's by adding this as bindings to your Hyprland config:
 ```
+# Template
+bind = $mainMod, [CHOOSEN_KEY], exec, hyprdrop [CHOOSEN_TERMINAL] -i [CHOOSEN_IDENTIFIER]
+# Example
 bind = $mainMod, U, exec, hyprdrop alacritty -i alacritty_hyprdrop
 ```
 Additionally, if you want to launch a TUI application:
 ```
+# Template
+bind = $mainMod, [CHOOSEN_KEY], exec, hyprdrop [CHOOSEN_TERMINAL] --identifier=[CHOOSEN_IDENTIFIER] --args=[TUI_CMD_AND_ARGS]
+# Example
 bind = $mainMod, I, exec, hyprdrop alacritty --identifier=bottom_hyprdrop --args=btm,-b
 ```
 You can check the `hyprdrop --help` command to see all the available options.
@@ -41,7 +47,7 @@ You can check the `hyprdrop --help` command to see all the available options.
 >[!NOTE]
 >
 > Check that for TUI applications it's not required to type the `-e` flag that most
-> terminal emulators use when executing a command, this is implemented by Hyprdrop.
+> terminal emulators use when executing a command, this is implemented by Hyprdrop itself.
 
 >[!WARNING]
 >
