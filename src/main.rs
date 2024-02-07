@@ -64,7 +64,10 @@ trait LocalCLient {
 impl LocalCLient for Client {
     fn check_title_or_class_or_address(&self, cli: &Cli, address: &Window) -> bool {
         match cli.cmd.as_str() {
+            // CHECK TITLE
             "foot" => self.title == cli.identifier,
+
+            // CHECK ADDRESS BY INITIAL TITLE
             // NOTE: gnome-terminal ignores assigning class and name variables. At tests, only
             // worked the initial title which is assigned with the `title` flag, but when the
             // terminal is opened the title is changed. Besides, hyprland-rs doesn't support the
@@ -72,9 +75,12 @@ impl LocalCLient for Client {
             "gnome-terminal" => {
                 &self.address == address.get_address().as_ref().unwrap_or(&Address::new(""))
             }
+
+            // CHECK PARTIAL TITLE
             "konsole" => self.title.contains(&cli.identifier),
             // TODO: Add here other commands
 
+            // CHECK CLASS
             // Alacritty, Kitty and Wezterm all accept class name as parameter, and is assumed for
             // now to be the same for most applications
             _ => self.class == cli.identifier,
