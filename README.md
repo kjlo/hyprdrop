@@ -33,8 +33,8 @@ bind = $mainMod, U, exec, hyprdrop alacritty -i alacritty_hyprdrop
 >
 > The argument identifier must be a unique name if you want to use as a separate application with
 > special window rules.
-Additionally, if you want to launch a TUI application:
 
+Additionally, if you want to launch a TUI application:
 ```
 # Template
 bind = $mainMod, [KEY], exec, hyprdrop [TERMINAL] --identifier=[CHOOSEN_IDENTIFIER] --args=[TUI_CMD_AND_ARGS]
