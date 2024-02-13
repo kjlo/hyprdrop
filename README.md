@@ -49,7 +49,7 @@ bind = $mainMod, I, exec, hyprdrop alacritty --identifier=bottom_hyprdrop --args
 To launch Spotify:
 ```
 # Template
-bind = $mainMod, [CHOOSEN_KEY], exec, hyprdrop [GUI_APP] --identifier=[CHOOSEN_IDENTIFIER] --args=[GUI_APP_ARGS] --env=[ENVIRONMENT_VARIABLE]
+bind = $mainMod, [KEY], exec, hyprdrop [GUI_APP] --identifier=[CHOOSEN_IDENTIFIER] --args=[GUI_APP_ARGS] --env=[ENVIRONMENT_VARIABLE]
 # Example
 bind = $mainMod, code:47, exec, hyprdrop spotify --identifier="Spotify Free" --args="--enable-features=UseOzonePlatform\,WaylandWindowDecorations,--ozone-platform=wayland" --env="LD_PRELOAD=/usr/lib/spotify-adblock.so"
 ```
