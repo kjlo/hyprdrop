@@ -2,8 +2,13 @@
 name = "hyprdrop"
 version = "0.2.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Johann", "banguard@pm.me"]
+description = "Dropdown creator for Hyprland, facilitating the toggling of a terminal emulator across various workspaces for seamless access and organization."
+repository = "https://github.com/kjlo/hyprdrop"
+readme = "README.md"
+license-file = "LICENSE"
+keywords = ["hyprland", "dropdown", "terminal", "workspaces"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 hyprland = "0.3.13"
