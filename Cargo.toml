@@ -11,7 +11,7 @@ keywords = ["hyprland", "dropdown", "terminal", "workspaces"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-hyprland = "0.3.13"
+hyprland = { git = "https://github.com/hyprland-community/hyprland-rs.git", tag = "0.4.0-alpha.2" }
 log = "0.4.20"
 time = "0.3.32"
 simple_logger = "4.3.3"
