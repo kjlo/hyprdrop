@@ -7,7 +7,7 @@ https://github.com/kjlo/hyprdrop/assets/79338048/cdf9fff6-690c-46cb-a7a6-0b2db14
 
 ## Requirements
 
-* [Hyprland](https://github.com/hyprwm/Hyprland)
+* [Hyprland](https://github.com/hyprwm/Hyprland) (Tested against version 0.46.2)
 * Rust >= 1.75
 
 
@@ -77,13 +77,14 @@ The following list shows which terminal emulators are fully supported by Hyprdro
 run every TUI application with this terminals and apply window rules.
 | Terminal | Supported | Window Identifier (for Hyprland Config)|
 |--------------- | ----- | -------- |
-| Alacritty      | yes   | class    |
-| Kitty          | yes   | class    |
-| Wezterm        | yes   | class    |
-| Gnome Terminal | yes   | title    |
+| Alacritty      | yes   | title[^1]    |
 | Foot           | yes   | title    |
-| Konsole        | yes[^1] | title    |
+| Gnome Terminal | yes   | title    |
+| Ghostty        | yes   | title    |
+| Kitty          | yes   | class    |
+| Konsole        | yes[^2] | title    |
 | Rio            | [no](https://github.com/raphamorim/rio/issues/405)    | -        |
+| Wezterm        | yes   | class    |
 * This list is compiled based on testing conducted on those apps.
 
 #### Partially Supported
@@ -92,7 +93,8 @@ run every TUI application with this terminals and apply window rules.
 | Spotify | Unable to apply window rules |
 * This list is compiled based on testing conducted on those apps.
 
-[^1]: To apply window rules for Konsole you need to use a partial pattern matching because Konsole modify
+[^1]: Now, Alacritty receives window rules through the title of the window, adjust your settings accordingly.
+[^2]: To apply window rules for Konsole you need to use a partial pattern matching because Konsole modify
 the title of the window to something like this: `[ASSIGNED_IDENTIFIER_BY_USER] — Konsole`. So you must
 create a window rule with this syntax: `windowrule = [RULE], title:^[ASSIGNED_IDENTIFIER_BY_USER] —
 Konsole$` or simply `windowrule = [RULE], title:^[ASSIGNED_TITLE_BY_USER]`
@@ -106,9 +108,9 @@ Konsole$` or simply `windowrule = [RULE], title:^[ASSIGNED_TITLE_BY_USER]`
 For better experience you can add some window rules to your Hyprland config. This could create a
 centered floating window with defined size.
 ```
-windowrulev2 = float, class:^(alacritty_hyprdrop)$
-windowrulev2 = center, class:^(alacritty_hyprdrop)$
-windowrulev2 = size 1460 810, class:^(alacritty_hyprdrop)$
+windowrulev2 = float, title:^(alacritty_hyprdrop)$
+windowrulev2 = center, title:^(alacritty_hyprdrop)$
+windowrulev2 = size 1460 810, title:^(alacritty_hyprdrop)$
 windowrulev2 = float, title:^(foot_hyprdrop)$
 windowrulev2 = float, title:^(gnome-terminal_hyprdrop)
 ```

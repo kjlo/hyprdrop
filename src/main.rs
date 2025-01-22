@@ -72,7 +72,7 @@ impl LocalCLient for Client {
     fn check_title_or_class_or_address(&self, cli: &Cli, address: &Window) -> bool {
         match cli.cmd.as_str() {
             // CHECK TITLE
-            "foot" => self.title == cli.identifier,
+            "alacritty" | "foot" | "ghostty" => self.title == cli.identifier,
 
             // CHECK ADDRESS BY INITIAL TITLE
             // NOTE: gnome-terminal ignores assigning class and name variables. At tests, only
@@ -105,7 +105,7 @@ enum Window<'a> {
     Special((Option<WindowIdentifier<'a>>, Option<Address>)),
 }
 
-impl<'a> Window<'a> {
+impl Window<'_> {
     /// Extract the identifier from Window Enum
     fn get_window_identifier(&self) -> Option<WindowIdentifier> {
         match self {
@@ -137,10 +137,12 @@ impl Cli {
         pattern_match: &'a str,
     ) -> Window<'a> {
         match self.cmd.as_str() {
-            "alacritty" | "kitty" | "wezterm" => Window::Normal(Some(
-                WindowIdentifier::ClassRegularExpression(pattern_match),
-            )),
-            "foot" => Window::Normal(Some(WindowIdentifier::Title(pattern_match))),
+            "alacritty" | "foot" | "ghostty" => {
+                Window::Normal(Some(WindowIdentifier::Title(pattern_match)))
+            }
+            "kitty" | "wezterm" => Window::Normal(Some(WindowIdentifier::ClassRegularExpression(
+                pattern_match,
+            ))),
             "gnome-terminal" | "spotify" => {
                 self.get_window_identifier_by_address(clients, &self.identifier)
             }
@@ -209,7 +211,13 @@ impl Cli {
                 // let cmd_args = args.split(',').collect::<Vec<&str>>().join(" ");
                 let cmd_args = self.split_args();
                 return match self.cmd.as_str() {
-                    "alacritty" | "kitty" => {
+                    "alacritty" | "ghostty" => {
+                        format!(
+                            "{}{} --title={} -e {}",
+                            cmd_envs, self.cmd, self.identifier, &cmd_args
+                        )
+                    }
+                    "kitty" => {
                         format!(
                             "{}{} --class={} -e {}",
                             cmd_envs, self.cmd, self.identifier, &cmd_args
@@ -246,7 +254,10 @@ impl Cli {
         }
         // No arguments given
         match self.cmd.as_str() {
-            "alacritty" | "kitty" => {
+            "alacritty" | "ghostty" => {
+                format!("{}{} --title={}", cmd_envs, self.cmd, self.identifier)
+            }
+            "kitty" => {
                 format!("{}{} --class={}", cmd_envs, self.cmd, self.identifier)
             }
             "foot" => format!(
